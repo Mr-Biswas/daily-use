@@ -11,6 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
   <style>
     :root {
@@ -276,6 +277,33 @@
       margin-top: 10px;
     }
 
+
+    .qr-output {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 230px;
+      margin-top: 16px;
+      padding: 16px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: auto;
+    }
+
+    .qr-output canvas,
+    .qr-output img {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .qr-help {
+      margin-top: 8px;
+      font-size: 0.86rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
     @media (max-width: 520px) {
       body {
         padding: 16px 10px;
@@ -333,6 +361,7 @@
       <button class="tab-btn" type="button" onclick="switchTab('compress', this)">🗜️ Compress</button>
       <button class="tab-btn" type="button" onclick="switchTab('pdf', this)">📑 Merge PDF</button>
       <button class="tab-btn" type="button" onclick="switchTab('image-pdf', this)">🖼️ Image to PDF</button>
+      <button class="tab-btn" type="button" onclick="switchTab('qr', this)">🔳 QR Code</button>
       <button class="tab-btn" type="button" onclick="switchTab('ocr', this)">🔍 Image to Text</button>
     </nav>
 
@@ -442,7 +471,41 @@
       <div id="image-pdf-status" class="status-text"></div>
     </section>
 
-    <!-- 5. OCR -->
+    <!-- 5. QR Code Generator -->
+    <section id="panel-qr" class="panel">
+      <h2>QR Code Generator</h2>
+
+      <div class="control-group">
+        <label for="qr-input">Enter a working URL</label>
+        <input
+          type="url"
+          id="qr-input"
+          placeholder="https://example.com"
+          autocomplete="url"
+          inputmode="url"
+        />
+        <div class="qr-help">
+          Enter a complete HTTP or HTTPS link. The QR code stores the URL directly.
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="qr-generate-btn" class="btn" type="button" onclick="generateQRCode()">
+          Generate QR Code
+        </button>
+        <button class="btn secondary-btn" type="button" onclick="clearQRCode()">
+          Clear
+        </button>
+        <button id="qr-download-btn" class="btn secondary-btn" type="button" onclick="downloadQRCode()" disabled>
+          Download QR
+        </button>
+      </div>
+
+      <div id="qr-status" class="status-text"></div>
+      <div id="qr-output" class="qr-output" aria-label="Generated QR code"></div>
+    </section>
+
+    <!-- 6. OCR -->
     <section id="panel-ocr" class="panel">
       <h2>Image Text Extractor (OCR)</h2>
 
@@ -1115,8 +1178,97 @@
       }
     }
 
+
     // -----------------------------
-    // 4. OCR - Advanced Tesseract.js
+    // 5. QR Code Generator
+    // -----------------------------
+    let generatedQR = null;
+
+    function generateQRCode() {
+      const input = document.getElementById('qr-input');
+      const output = document.getElementById('qr-output');
+      const downloadButton = document.getElementById('qr-download-btn');
+
+      try {
+        const raw = input.value.trim();
+
+        if (!raw) {
+          throw new Error('Please enter a URL.');
+        }
+
+        let url;
+        try {
+          url = new URL(raw);
+        } catch {
+          throw new Error('Enter a valid URL, for example https://example.com');
+        }
+
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          throw new Error('Only HTTP and HTTPS links are supported.');
+        }
+
+        if (typeof QRCode === 'undefined') {
+          throw new Error('QR generator library could not be loaded. Check your internet connection.');
+        }
+
+        output.innerHTML = '';
+
+        generatedQR = new QRCode(output, {
+          text: url.href,
+          width: 280,
+          height: 280,
+          colorDark: '#111111',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.H
+        });
+
+        downloadButton.disabled = false;
+
+        setStatus(
+          'qr-status',
+          'QR code generated successfully. Scan it with your phone to open the link.',
+          'success'
+        );
+      } catch (error) {
+        generatedQR = null;
+        output.innerHTML = '';
+        downloadButton.disabled = true;
+        setStatus('qr-status', error.message, 'error');
+      }
+    }
+
+    function downloadQRCode() {
+      const output = document.getElementById('qr-output');
+      const canvas = output.querySelector('canvas');
+      const image = output.querySelector('img');
+
+      const dataURL = canvas
+        ? canvas.toDataURL('image/png')
+        : (image ? image.src : '');
+
+      if (!dataURL) {
+        setStatus('qr-status', 'Generate a QR code first.', 'error');
+        return;
+      }
+
+      const link = document.createElement('a');
+      link.href = dataURL;
+      link.download = 'qr-code.png';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+
+    function clearQRCode() {
+      document.getElementById('qr-input').value = '';
+      document.getElementById('qr-output').innerHTML = '';
+      document.getElementById('qr-download-btn').disabled = true;
+      generatedQR = null;
+      setStatus('qr-status', '');
+    }
+
+    // -----------------------------
+    // 6. OCR - Advanced Tesseract.js
     // -----------------------------
     const ocrInput = document.getElementById('ocr-input');
 
