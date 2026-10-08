@@ -304,6 +304,77 @@
       line-height: 1.45;
     }
 
+    .qr-output {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 340px;
+      margin-top: 16px;
+      padding: 28px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: auto;
+    }
+
+    .qr-output canvas,
+    .qr-output img {
+      display: block;
+      width: 100%;
+      max-width: 520px;
+      height: auto;
+      image-rendering: pixelated;
+      background: #ffffff;
+    }
+
+    .qr-help {
+      margin-top: 8px;
+      font-size: 0.86rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .qr-print-settings {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .qr-size-option {
+      padding: 9px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .qr-size-option.active {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: #eff6ff;
+    }
+
+    .qr-preview-label {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    @media (max-width: 520px) {
+      .qr-print-settings {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .qr-output {
+        min-height: 260px;
+        padding: 18px;
+      }
+    }
+
     @media (max-width: 520px) {
       body {
         padding: 16px 10px;
@@ -471,38 +542,51 @@
       <div id="image-pdf-status" class="status-text"></div>
     </section>
 
-    <!-- 5. QR Code Generator -->
+    <!-- 5. CV-Optimized QR Code Generator -->
     <section id="panel-qr" class="panel">
-      <h2>QR Code Generator</h2>
+      <h2>CV-Optimized QR Code</h2>
 
       <div class="control-group">
-        <label for="qr-input">Enter a working URL</label>
+        <label for="qr-input">Enter your CV / Portfolio / LinkedIn URL</label>
         <input
           type="url"
           id="qr-input"
-          placeholder="https://example.com"
+          placeholder="https://example.com/your-profile"
           autocomplete="url"
           inputmode="url"
         />
         <div class="qr-help">
-          Enter a complete HTTP or HTTPS link. The QR code stores the URL directly.
+          Best results: use a short, permanent HTTPS link. The QR is generated with
+          high error correction and a proper white quiet zone for CV printing.
+        </div>
+
+        <label>Recommended print size</label>
+        <div class="qr-print-settings" role="group" aria-label="CV QR print size">
+          <button class="qr-size-option" type="button" data-cm="2.5" onclick="setQRPrintSize(2.5, this)">2.5 cm</button>
+          <button class="qr-size-option active" type="button" data-cm="3" onclick="setQRPrintSize(3, this)">3.0 cm</button>
+          <button class="qr-size-option" type="button" data-cm="3.5" onclick="setQRPrintSize(3.5, this)">3.5 cm</button>
+          <button class="qr-size-option" type="button" data-cm="4" onclick="setQRPrintSize(4, this)">4.0 cm</button>
+        </div>
+
+        <div id="qr-size-note" class="qr-preview-label">
+          3.0 cm — recommended for a CV.
         </div>
       </div>
 
       <div class="button-row">
         <button id="qr-generate-btn" class="btn" type="button" onclick="generateQRCode()">
-          Generate QR Code
+          Generate CV QR
         </button>
         <button class="btn secondary-btn" type="button" onclick="clearQRCode()">
           Clear
         </button>
         <button id="qr-download-btn" class="btn secondary-btn" type="button" onclick="downloadQRCode()" disabled>
-          Download QR
+          Download Print-Ready PNG
         </button>
       </div>
 
       <div id="qr-status" class="status-text"></div>
-      <div id="qr-output" class="qr-output" aria-label="Generated QR code"></div>
+      <div id="qr-output" class="qr-output" aria-label="CV optimized QR code"></div>
     </section>
 
     <!-- 6. OCR -->
@@ -1180,9 +1264,35 @@
 
 
     // -----------------------------
-    // 5. QR Code Generator
+    // 5. CV-Optimized QR Generator
     // -----------------------------
     let generatedQR = null;
+    let qrPrintCm = 3.0;
+
+    function setQRPrintSize(cm, button) {
+      qrPrintCm = Number(cm);
+
+      document.querySelectorAll('.qr-size-option').forEach((item) => {
+        item.classList.remove('active');
+      });
+
+      if (button) button.classList.add('active');
+
+      const note = document.getElementById('qr-size-note');
+      const description = qrPrintCm === 3
+        ? 'recommended for a CV.'
+        : qrPrintCm === 3.5
+          ? 'best for maximum scan reliability.'
+          : qrPrintCm === 4
+            ? 'maximum practical CV size.'
+            : 'compact; use only if space is limited.';
+
+      note.textContent = `${qrPrintCm.toFixed(1)} cm — ${description}`;
+
+      if (document.getElementById('qr-input').value.trim()) {
+        generateQRCode();
+      }
+    }
 
     function generateQRCode() {
       const input = document.getElementById('qr-input');
@@ -1193,14 +1303,14 @@
         const raw = input.value.trim();
 
         if (!raw) {
-          throw new Error('Please enter a URL.');
+          throw new Error('Please enter your CV, portfolio, or profile URL.');
         }
 
         let url;
         try {
           url = new URL(raw);
         } catch {
-          throw new Error('Enter a valid URL, for example https://example.com');
+          throw new Error('Enter a valid URL, for example https://example.com/cv');
         }
 
         if (!['http:', 'https:'].includes(url.protocol)) {
@@ -1211,22 +1321,69 @@
           throw new Error('QR generator library could not be loaded. Check your internet connection.');
         }
 
-        output.innerHTML = '';
+        // 1200 px gives a high-resolution source suitable for CV placement.
+        // QRCode.js uses a quiet zone through its margin-independent module
+        // structure; we add an explicit white border in the final canvas.
+        const qrCoreSize = 1040;
+        const quietZone = 80;
+        const finalSize = qrCoreSize + quietZone * 2;
 
-        generatedQR = new QRCode(output, {
+        const coreCanvas = document.createElement('canvas');
+        coreCanvas.width = qrCoreSize;
+        coreCanvas.height = qrCoreSize;
+
+        const temp = document.createElement('div');
+        temp.style.position = 'absolute';
+        temp.style.left = '-99999px';
+        temp.style.top = '-99999px';
+        temp.style.width = `${qrCoreSize}px`;
+        temp.style.height = `${qrCoreSize}px`;
+        temp.style.background = '#ffffff';
+        document.body.appendChild(temp);
+
+        new QRCode(temp, {
           text: url.href,
-          width: 280,
-          height: 280,
-          colorDark: '#111111',
+          width: qrCoreSize,
+          height: qrCoreSize,
+          colorDark: '#000000',
           colorLight: '#ffffff',
           correctLevel: QRCode.CorrectLevel.H
         });
+
+        const sourceCanvas = temp.querySelector('canvas');
+        const sourceImage = temp.querySelector('img');
+
+        if (!sourceCanvas && !sourceImage) {
+          temp.remove();
+          throw new Error('QR code could not be rendered.');
+        }
+
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = finalSize;
+        finalCanvas.height = finalSize;
+
+        const ctx = finalCanvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, finalSize, finalSize);
+
+        if (sourceCanvas) {
+          ctx.drawImage(sourceCanvas, quietZone, quietZone, qrCoreSize, qrCoreSize);
+        } else {
+          ctx.drawImage(sourceImage, quietZone, quietZone, qrCoreSize, qrCoreSize);
+        }
+
+        temp.remove();
+
+        output.innerHTML = '';
+        output.appendChild(finalCanvas);
+        generatedQR = finalCanvas;
 
         downloadButton.disabled = false;
 
         setStatus(
           'qr-status',
-          'QR code generated successfully. Scan it with your phone to open the link.',
+          `CV QR generated at ${finalSize}×${finalSize}px with high error correction. Recommended print size: ${qrPrintCm.toFixed(1)} cm.`,
           'success'
         );
       } catch (error) {
@@ -1238,25 +1395,29 @@
     }
 
     function downloadQRCode() {
-      const output = document.getElementById('qr-output');
-      const canvas = output.querySelector('canvas');
-      const image = output.querySelector('img');
-
-      const dataURL = canvas
-        ? canvas.toDataURL('image/png')
-        : (image ? image.src : '');
-
-      if (!dataURL) {
-        setStatus('qr-status', 'Generate a QR code first.', 'error');
+      if (!generatedQR) {
+        setStatus('qr-status', 'Generate a CV QR code first.', 'error');
         return;
       }
 
-      const link = document.createElement('a');
-      link.href = dataURL;
-      link.download = 'qr-code.png';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      try {
+        const dataURL = generatedQR.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = dataURL;
+        link.download = `cv-qr-${qrPrintCm.toFixed(1)}cm-1200px.png`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        setStatus(
+          'qr-status',
+          `Print-ready ${qrPrintCm.toFixed(1)} cm QR PNG downloaded.`,
+          'success'
+        );
+      } catch (error) {
+        console.error('QR download error:', error);
+        setStatus('qr-status', 'Unable to download the QR image.', 'error');
+      }
     }
 
     function clearQRCode() {
